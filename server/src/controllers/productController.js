@@ -2,6 +2,51 @@ import pool from "../config/db.js";
 
 export const getProducts = async (req, res) => {
   try {
+    const { search, category_id, gender, size, color, min_price, max_price } =
+      req.query;
+
+    const conditions = ["p.is_active = TRUE", "c.is_active = TRUE"];
+    const values = [];
+
+    if (search) {
+      values.push(`%${search}%`);
+      conditions.push(`p.name ILIKE $${values.length}`);
+    }
+    if (category_id) {
+      values.push(category_id);
+      conditions.push(`p.category_id = $${values.length}`);
+    }
+    if (gender) {
+      values.push(gender);
+      conditions.push(`p.gender = $${values.length}`);
+    }
+    if (min_price) {
+      values.push(min_price);
+      conditions.push(
+        `COALESCE(p.discount_price, p.price) >= $${values.length}`,
+      );
+    }
+    if (max_price) {
+      values.push(max_price);
+      conditions.push(
+        `COALESCE(p.discount_price, p.price) <= $${values.length}`,
+      );
+    }
+    if (size || color) {
+      const variantConditions = ["v.product_id = p.id", "v.stock > 0"];
+      if (size) {
+        values.push(size);
+        variantConditions.push(`v.size = $${values.length}`);
+      }
+      if (color) {
+        values.push(color);
+        variantConditions.push(`v.color ILIKE $${values.length}`);
+      }
+      conditions.push(
+        `EXISTS (SELECT 1 FROM product_variants v WHERE ${variantConditions.join(" AND ")})`,
+      );
+    }
+
     const result = await pool.query(
       `SELECT p.id, p.name, p.description, p.gender, p.price, p.discount_price,
               c.name AS category,
@@ -9,8 +54,9 @@ export const getProducts = async (req, res) => {
               COALESCE((SELECT SUM(stock) FROM product_variants WHERE product_id = p.id), 0) AS total_stock
        FROM products p
        JOIN categories c ON c.id = p.category_id
-       WHERE p.is_active = TRUE AND c.is_active = TRUE
+       WHERE ${conditions.join(" AND ")}
        ORDER BY p.created_at DESC`,
+      values,
     );
     res.json(result.rows);
   } catch (err) {
