@@ -101,3 +101,47 @@ export const checkout = async (req, res) => {
     client.release();
   }
 };
+
+export const getMyOrders = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, total_amount, status, created_at
+       FROM orders
+       WHERE user_id = $1
+       ORDER BY created_at DESC`,
+      [req.user.id],
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getMyOrderById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const orderResult = await pool.query(
+      "SELECT * FROM orders WHERE id = $1 AND user_id = $2",
+      [id, req.user.id],
+    );
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const items = await pool.query(
+      `SELECT oi.quantity, oi.price, oi.quantity * oi.price AS line_total,
+              p.name, v.size, v.color
+       FROM order_items oi
+       JOIN product_variants v ON v.id = oi.product_variant_id
+       JOIN products p ON p.id = v.product_id
+       WHERE oi.order_id = $1
+       ORDER BY oi.id`,
+      [id],
+    );
+
+    res.json({ ...orderResult.rows[0], items: items.rows });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
