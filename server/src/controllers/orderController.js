@@ -145,3 +145,123 @@ export const getMyOrderById = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+const NEXT_STATUS = {
+  pending: ["confirmed", "cancelled"],
+  confirmed: ["preparing", "cancelled"],
+  preparing: ["shipped", "cancelled"],
+  shipped: ["delivered"],
+  delivered: [],
+  cancelled: [],
+};
+
+export const getAllOrdersAdmin = async (req, res) => {
+  try {
+    const { status } = req.query;
+    const values = [];
+    let where = "";
+    if (status) {
+      values.push(status);
+      where = "WHERE o.status = $1";
+    }
+
+    const result = await pool.query(
+      `SELECT o.id, o.customer_name, o.phone, o.city, o.total_amount, o.status, o.created_at,
+              u.email
+       FROM orders o
+       JOIN users u ON u.id = o.user_id
+       ${where}
+       ORDER BY o.created_at DESC`,
+      values,
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getOrderByIdAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const orderResult = await pool.query(
+      `SELECT o.*, u.email
+       FROM orders o
+       JOIN users u ON u.id = o.user_id
+       WHERE o.id = $1`,
+      [id],
+    );
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const items = await pool.query(
+      `SELECT oi.quantity, oi.price, oi.quantity * oi.price AS line_total,
+              p.name, v.size, v.color
+       FROM order_items oi
+       JOIN product_variants v ON v.id = oi.product_variant_id
+       JOIN products p ON p.id = v.product_id
+       WHERE oi.order_id = $1
+       ORDER BY oi.id`,
+      [id],
+    );
+
+    res.json({ ...orderResult.rows[0], items: items.rows });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateOrderStatus = async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!status || !(status in NEXT_STATUS)) {
+    return res.status(400).json({ message: "Invalid status" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const orderResult = await client.query(
+      "SELECT status FROM orders WHERE id = $1 FOR UPDATE",
+      [id],
+    );
+    if (orderResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const current = orderResult.rows[0].status;
+    if (!NEXT_STATUS[current].includes(status)) {
+      await client.query("ROLLBACK");
+      return res
+        .status(400)
+        .json({ message: `Cannot change status from ${current} to ${status}` });
+    }
+
+    if (status === "cancelled") {
+      await client.query(
+        `UPDATE product_variants v
+         SET stock = v.stock + oi.quantity
+         FROM order_items oi
+         WHERE oi.order_id = $1 AND oi.product_variant_id = v.id`,
+        [id],
+      );
+    }
+
+    const updated = await client.query(
+      "UPDATE orders SET status = $1 WHERE id = $2 RETURNING *",
+      [status, id],
+    );
+
+    await client.query("COMMIT");
+    res.json(updated.rows[0]);
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ message: err.message });
+  } finally {
+    client.release();
+  }
+};
