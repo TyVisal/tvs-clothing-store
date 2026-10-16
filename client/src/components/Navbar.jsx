@@ -20,6 +20,7 @@ export default function Navbar() {
           {user ? (
             <>
               <Link to="/cart">Cart</Link>
+              <Link to="/orders">My Orders</Link>
               <span>Hi, {user.name}</span>
               <button onClick={handleLogout} className="underline">
                 Logout
