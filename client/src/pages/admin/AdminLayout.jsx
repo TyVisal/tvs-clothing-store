@@ -1,7 +1,9 @@
 import { NavLink, Outlet } from "react-router-dom";
 
-const links = [{ to: "/admin", label: "Dashboard", end: true }];
-
+const links = [
+  { to: "/admin", label: "Dashboard", end: true },
+  { to: "/admin/orders", label: "Orders" },
+];
 export default function AdminLayout() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 flex gap-6">
