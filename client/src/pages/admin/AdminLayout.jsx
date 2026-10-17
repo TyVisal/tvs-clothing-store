@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router-dom";
 
 const links = [
   { to: "/admin", label: "Dashboard", end: true },
+  { to: "/admin/products", label: "Products" },
   { to: "/admin/orders", label: "Orders" },
   { to: "/admin/categories", label: "Categories" },
 ];
