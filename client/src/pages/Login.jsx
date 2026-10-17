@@ -13,8 +13,8 @@ export default function Login() {
     e.preventDefault();
     setError("");
     try {
-      await login(email, password);
-      navigate("/");
+      const loggedIn = await login(email, password);
+      navigate(loggedIn.role === "admin" ? "/admin" : "/");
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong");
     }

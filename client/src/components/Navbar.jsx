@@ -19,6 +19,7 @@ export default function Navbar() {
         <div className="flex items-center gap-4 text-sm">
           {user ? (
             <>
+              {user.role === "admin" && <Link to="/admin">Admin</Link>}
               <Link to="/cart">Cart</Link>
               <Link to="/orders">My Orders</Link>
               <span>Hi, {user.name}</span>
