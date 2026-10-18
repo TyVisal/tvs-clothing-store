@@ -12,6 +12,7 @@ const emptyForm = {
 
 export default function AdminProducts() {
   const [products, setProducts] = useState(null);
+  const [imageFiles, setImageFiles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [variants, setVariants] = useState([{ size: "", color: "", stock: 0 }]);
@@ -49,7 +50,7 @@ export default function AdminProducts() {
     e.preventDefault();
     setError("");
     try {
-      await api.post("/products", {
+      const res = await api.post("/products", {
         category_id: Number(form.category_id),
         name: form.name,
         description: form.description,
@@ -63,10 +64,30 @@ export default function AdminProducts() {
           stock: Number(v.stock),
         })),
       });
+
+      const newId = res.data.product.id;
+      let uploadFailed = false;
+      for (const file of imageFiles) {
+        const data = new FormData();
+        data.append("image", file);
+        try {
+          await api.post(`/products/${newId}/images`, data);
+        } catch {
+          uploadFailed = true;
+        }
+      }
+
       setForm(emptyForm);
       setVariants([{ size: "", color: "", stock: 0 }]);
+      setImageFiles([]);
       setShowForm(false);
       await load();
+
+      if (uploadFailed) {
+        alert(
+          "Product saved, but some images failed to upload. Add them from the Variants panel.",
+        );
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong");
     }
@@ -127,6 +148,29 @@ export default function AdminProducts() {
     } catch (err) {
       setVariantError(err.response?.data?.message || "Something went wrong");
     }
+  };
+
+  const uploadImage = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setVariantError("");
+    const data = new FormData();
+    data.append("image", file);
+    try {
+      await api.post(`/products/${openId}/images`, data);
+      await loadOpenProduct(openId);
+      await load();
+    } catch (err) {
+      setVariantError(err.response?.data?.message || "Upload failed");
+    }
+    e.target.value = "";
+  };
+
+  const deleteImage = async (imageId) => {
+    setVariantError("");
+    await api.delete(`/products/images/${imageId}`);
+    await loadOpenProduct(openId);
+    await load();
   };
 
   if (!products) return <p>Loading...</p>;
@@ -267,7 +311,26 @@ export default function AdminProducts() {
             </button>
           </div>
 
+          <div>
+            <p className="text-sm font-semibold mb-2">
+              Images (optional, the first one is the main image)
+            </p>
+            <input
+              type="file"
+              multiple
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => setImageFiles(Array.from(e.target.files))}
+            />
+            {imageFiles.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                {imageFiles.length} file(s) selected:{" "}
+                {imageFiles.map((f) => f.name).join(", ")}
+              </p>
+            )}
+          </div>
+
           {error && <p className="text-red-600 text-sm">{error}</p>}
+
           <button className="bg-black text-white px-4 py-2 rounded text-sm">
             Save product
           </button>
@@ -387,6 +450,30 @@ export default function AdminProducts() {
                   Add
                 </button>
               </div>
+
+              <p className="text-sm font-semibold mt-4 mb-2">Images</p>
+              <div className="flex flex-wrap gap-3 mb-3">
+                {openProduct.images.map((img) => (
+                  <div key={img.id} className="relative">
+                    <img
+                      src={img.image_url}
+                      alt=""
+                      className="h-20 w-20 object-cover rounded border"
+                    />
+                    <button
+                      onClick={() => deleteImage(img.id)}
+                      className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-5 h-5 text-xs"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={uploadImage}
+              />
             </>
           )}
         </div>

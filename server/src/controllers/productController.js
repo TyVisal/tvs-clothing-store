@@ -303,3 +303,45 @@ export const addVariant = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const addProductImage = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "Please choose an image" });
+    }
+
+    const exists = await pool.query("SELECT id FROM products WHERE id = $1", [
+      id,
+    ]);
+    if (exists.rows.length === 0) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    const url = `/uploads/${req.file.filename}`;
+    const result = await pool.query(
+      "INSERT INTO product_images (product_id, image_url) VALUES ($1, $2) RETURNING *",
+      [id, url],
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const deleteProductImage = async (req, res) => {
+  try {
+    const { imageId } = req.params;
+    const result = await pool.query(
+      "DELETE FROM product_images WHERE id = $1 RETURNING id",
+      [imageId],
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Image not found" });
+    }
+    res.json({ message: "Image deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
