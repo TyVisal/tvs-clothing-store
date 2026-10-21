@@ -22,6 +22,7 @@ export default function Navbar() {
               {user.role === "admin" && <Link to="/admin">Admin</Link>}
               <Link to="/cart">Cart</Link>
               <Link to="/orders">My Orders</Link>
+              <Link to="/profile">Profile</Link>
               <span>Hi, {user.name}</span>
               <button onClick={handleLogout} className="underline">
                 Logout

@@ -15,6 +15,7 @@ import AdminOrders from "./pages/admin/AdminOrders";
 import AdminCategories from "./pages/admin/AdminCategories";
 import AdminProducts from "./pages/admin/AdminProducts";
 import AdminCustomers from "./pages/admin/AdminCustomers";
+import Profile from "./pages/Profile";
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/orders/:id" element={<OrderDetails />} />
+        <Route path="/profile" element={<Profile />} />
 
         <Route
           path="/admin"
