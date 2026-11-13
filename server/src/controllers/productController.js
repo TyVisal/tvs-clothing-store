@@ -1,5 +1,16 @@
 import pool from "../config/db.js";
 
+import cloudinary from "../config/cloudinary.js";
+
+const uploadToCloudinary = (buffer) =>
+  new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: "tvs-clothing-store" },
+      (error, result) => (error ? reject(error) : resolve(result)),
+    );
+    stream.end(buffer);
+  });
+
 export const getProducts = async (req, res) => {
   try {
     const { search, category_id, gender, size, color, min_price, max_price } =
@@ -319,7 +330,9 @@ export const addProductImage = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    const url = `/uploads/${req.file.filename}`;
+    // const url = `/uploads/${req.file.filename}`;
+    const uploaded = await uploadToCloudinary(req.file.buffer);
+    const url = uploaded.secure_url;
     const result = await pool.query(
       "INSERT INTO product_images (product_id, image_url) VALUES ($1, $2) RETURNING *",
       [id, url],
